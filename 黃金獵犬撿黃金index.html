@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>黃金獵犬便便大作戰</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* 防止手機端滑動縮放 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0e6d2; /* 溫暖的日式底色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'M PLUS Rounded 1c', sans-serif; /* 可愛圓體 */
+            font-weight: 700;
+        }
+
+        /* 遊戲主容器，強制 9:16 比例 */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            max-width: 450px; /* 限制桌面端最大寬度 */
+            aspect-ratio: 9 / 16;
+            background-color: #FFF9E6;
+            background-image: radial-gradient(#F5E6CC 2px, transparent 2px); /* 點點背景 */
+            background-size: 20px 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(139, 69, 19, 0.15);
+            border-radius: 24px;
+            border: 6px solid #E8D3B9;
+            cursor: pointer; /* 讓整個遊戲區域的游標都變成手 */
+        }
+
+        /* 適用於手機端，確保不超過螢幕高度 */
+        @media (max-aspect-ratio: 9/16) {
+            #game-container {
+                width: 100vw;
+                height: calc(100vw * 16 / 9);
+                border-radius: 0; /* 手機全螢幕時取消圓角 */
+                border: none;
+            }
+        }
+
+        @media (min-aspect-ratio: 9/16) and (max-width: 600px) {
+            #game-container {
+                height: 100vh;
+                width: calc(100vh * 9 / 16);
+                border-radius: 0;
+                border: none;
+            }
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: pointer; /* 確保 canvas 上的游標也是手 */
+        }
+
+        /* UI 覆蓋層 */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 讓點擊穿透到 Canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            color: #8B4513; /* 咖啡色字體 */
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 0px #FFF;
+            pointer-events: auto; /* 若有按鈕需要可點擊 */
+        }
+
+        .score-box, .time-box {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 3px solid #E8D3B9;
+            box-shadow: 0 4px 0 #E8D3B9;
+        }
+
+        /* 彈出視窗 (開始/結束) */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 249, 230, 0.85);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            transition: opacity 0.3s ease;
+            cursor: default; /* 彈出視窗恢復預設游標 */
+        }
+
+        .modal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal-content {
+            background: #FFF;
+            padding: 30px;
+            border-radius: 24px;
+            text-align: center;
+            border: 4px solid #FFA07A;
+            box-shadow: 0 10px 0 #FFA07A, 0 15px 20px rgba(0,0,0,0.1);
+            max-width: 80%;
+            color: #8B4513;
+        }
+
+        .modal h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.8rem;
+            color: #FF7F50;
+        }
+
+        .modal p {
+            font-size: 1rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            color: #A0522D;
+        }
+
+        .btn {
+            background: #FFD700;
+            color: #8B4513;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            border: 3px solid #FFF;
+            box-shadow: 0 6px 0 #DAA520;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #DAA520;
+        }
+        
+        .final-score {
+            font-size: 2.5rem;
+            color: #FF4500;
+            margin: 15px 0;
+            text-shadow: 2px 2px 0px #FFF;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-layer">
+        <div class="header">
+            <div class="score-box">分數: <span id="scoreDisplay">0</span></div>
+            <div class="time-box">時間: <span id="timeDisplay">60</span>s</div>
+        </div>
+    </div>
+
+    <!-- 開始畫面 -->
+    <div id="startModal" class="modal">
+        <div class="modal-content">
+            <h1>🐕 便便大作戰 💩</h1>
+            <p>黃金獵犬出來散步啦！<br>請發揮你的神之手，在便便掉到路人頭上之前<strong>點擊撿起它</strong>！</p>
+            <p style="font-size: 0.9em; color: #CD853F;">接住便便 +10 分 <br> 便便砸到人 -5 分<br><br>🌟 <strong>真・黃金出沒注意</strong> 🌟<br>砸到人 <strong>+20</strong> 分！(天降橫財)<br>手滑撿起 +0 分 (白做工啦！)</p>
+            <button class="btn" id="startBtn">開始散步！</button>
+        </div>
+    </div>
+
+    <!-- 結束畫面 -->
+    <div id="gameOverModal" class="modal hidden">
+        <div class="modal-content">
+            <h1>時間到！</h1>
+            <p>你的清潔員等級：</p>
+            <div class="final-score" id="finalScoreDisplay">0</div>
+            <p id="rankText">見習鏟屎官</p>
+            <button class="btn" id="restartBtn">再玩一次</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * 音效系統 (使用 Web Audio API 合成，免載入外部檔案)
+     */
+    const AudioSys = (function() {
+        let ctx = null;
+        let bgmOsc = null;
+        let bgmGain = null;
+        let isBgmPlaying = false;
+
+        function init() {
+            if (!ctx) {
+                ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            
+            // 包絡線 (Attack-Decay) 讓聲音更自然、短促刺激
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + duration);
+        }
+
+        return {
+            init: init,
+            playGood: () => { // 點擊成功音效：清脆的高音
+                playTone(880, 'sine', 0.1, 0.2);
+                setTimeout(() => playTone(1320, 'sine', 0.15, 0.2), 50);
+            },
+            playBad: () => {  // 砸到人音效：低沉的錯誤音
+                playTone(250, 'sawtooth', 0.3, 0.15);
+                playTone(200, 'square', 0.4, 0.15);
+            },
+            playGoldHit: () => { // 金塊砸到人：中大獎音效
+                playTone(1046.5, 'square', 0.1, 0.1); 
+                setTimeout(() => playTone(1318.5, 'square', 0.15, 0.1), 100); 
+                setTimeout(() => playTone(1567.9, 'square', 0.2, 0.1), 200); 
+            },
+            playMiss: () => { // 手殘點到金塊：無奈音效
+                playTone(300, 'sine', 0.2, 0.1);
+                setTimeout(() => playTone(250, 'sine', 0.3, 0.1), 150);
+            },
+            playBgm: () => { // 刺激、快速的街機風格背景音樂
+                if(!ctx || isBgmPlaying) return;
+                isBgmPlaying = true;
+                const notes = [440, 523.25, 659.25, 880, 783.99, 659.25, 523.25, 587.33]; // A minor fast run
+                let noteIdx = 0;
+                
+                function nextNote() {
+                    if(!isBgmPlaying) return;
+                    
+                    // 主旋律
+                    playTone(notes[noteIdx % notes.length], 'square', 0.1, 0.06);
+                    
+                    // 刺激的低音 Bass
+                    if (noteIdx % 2 === 0) {
+                        playTone(notes[noteIdx % notes.length] / 4, 'sawtooth', 0.15, 0.08);
+                    }
+                    
+                    noteIdx++;
+                    setTimeout(nextNote, 130); // 超快節奏，帶來刺激感
+                }
+                nextNote();
+            },
+            stopBgm: () => {
+                isBgmPlaying = false;
+            }
+        };
+    })();
+
+    /**
+     * 遊戲核心邏輯
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+
+    // UI 元素
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const startModal = document.getElementById('startModal');
+    const gameOverModal = document.getElementById('gameOverModal');
+    const finalScoreDisplay = document.getElementById('finalScoreDisplay');
+    const rankText = document.getElementById('rankText');
+
+    // 遊戲狀態
+    let state = {
+        isPlaying: false,
+        score: 0,
+        timeLeft: 60,
+        lastTime: 0,
+        width: 0,
+        height: 0,
+        streetY: 0 // 行人步道的 Y 座標
+    };
+
+    // 實體陣列
+    let dog = null;
+    let poops = [];
+    let golds = []; // 新增黃金陣列
+    let pedestrians = [];
+    let floatingTexts = [];
+
+    // 調整 Canvas 解析度以適應高 DPI 螢幕
+    function resize() {
+        const rect = container.getBoundingClientRect();
+        state.width = rect.width;
+        state.height = rect.height;
+        
+        // 取得裝置像素比
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = state.width * dpr;
+        canvas.height = state.height * dpr;
+        
+        // 縮放 context，之後的繪圖都用 CSS 像素座標即可
+        ctx.scale(dpr, dpr);
+        
+        // 設定街道位置 (下方 15% 處)
+        state.streetY = state.height * 0.85;
+
+        // 設定文字基準
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+    }
+    window.addEventListener('resize', resize);
+
+    // --- 實體類別 ---
+
+    class Dog {
+        constructor() {
+            this.size = state.width * 0.4; // 加大尺寸，容納全身
+            this.x = state.width / 2;
+            this.y = state.height * 0.15;   // 靠上方
+            this.vx = (Math.random() > 0.5 ? 1 : -1) * (state.width * 0.4) / 60; // 每秒移動 40% 螢幕寬度
+            this.poopTimer = 0;
+            this.poopInterval = this.getRandomInterval();
+        }
+
+        getRandomInterval() {
+            // 隨機 0.8 到 2.5 秒大便一次
+            return (Math.random() * 1.7 + 0.8) * 60; 
+        }
+
+        update() {
+            this.x += this.vx;
+
+            // 碰到邊緣反彈，留足夠邊界確保全身不被切斷
+            if (this.x < this.size/2) {
+                this.x = this.size/2;
+                this.vx = Math.abs(this.vx) * (0.8 + Math.random()*0.4);
+            } else if (this.x > state.width - this.size/2) {
+                this.x = state.width - this.size/2;
+                this.vx = -Math.abs(this.vx) * (0.8 + Math.random()*0.4);
+            }
+
+            // 限制最高與最低速度
+            const baseSpeed = (state.width * 0.4) / 60;
+            if(Math.abs(this.vx) > baseSpeed * 1.5) this.vx = Math.sign(this.vx) * baseSpeed * 1.5;
+            if(Math.abs(this.vx) < baseSpeed * 0.5) this.vx = Math.sign(this.vx) * baseSpeed * 0.5;
+
+            // 產生便便邏輯 (從狗狗的屁股位置掉落)
+            this.poopTimer++;
+            if (this.poopTimer >= this.poopInterval) {
+                const buttX = this.x - Math.sign(this.vx) * (this.size * 0.25);
+                
+                // 真黃金出現比例是大便的一半 (即黃金:大便 = 1:2，約 33.3% 機率)
+                if (Math.random() < 0.333) {
+                    golds.push(new Gold(buttX, this.y + this.size * 0.05));
+                } else {
+                    poops.push(new Poop(buttX, this.y + this.size * 0.05));
+                }
+                
+                this.poopTimer = 0;
+                this.poopInterval = this.getRandomInterval();
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            // 根據移動方向翻轉狗狗
+            if (this.vx < 0) ctx.scale(-1, 1);
+            
+            // 縮放比例，讓繪圖基於 160x160 的相對網格，能容納完整修長身軀
+            const s = this.size / 160;
+            ctx.scale(s, s);
+
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#4A2511'; // 質感深咖啡色描邊
+
+            // --- 繪製質感黃金獵犬 (全身側面) ---
+            
+            // 1. 背景腿 (較暗的黃色)
+            const walkCycle = Date.now() / 80; // 步伐與刺激感匹配
+            const legSwing1 = Math.sin(walkCycle) * 20;
+            const legSwing2 = Math.sin(walkCycle + Math.PI) * 20;
+
+            ctx.fillStyle = '#E69A00';
+            // 後右腿 (背景)
+            ctx.beginPath(); ctx.roundRect(-30 + legSwing1, 10, 14, 30, 7); ctx.fill(); ctx.stroke();
+            // 前右腿 (背景)
+            ctx.beginPath(); ctx.roundRect(20 + legSwing2, 10, 14, 30, 7); ctx.fill(); ctx.stroke();
+
+            // 2. 搖擺的尾巴
+            const tailAngle = Math.sin(Date.now() / 40) * 0.6;
+            ctx.save();
+            ctx.translate(-45, -5);
+            ctx.rotate(tailAngle - Math.PI/4);
+            ctx.fillStyle = '#FFC107';
+            ctx.beginPath(); ctx.ellipse(0, -20, 10, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.restore();
+
+            // 3. 身體 (修長的橢圓)
+            ctx.fillStyle = '#FFC107';
+            ctx.beginPath();
+            ctx.ellipse(-5, 0, 45, 25, 0, 0, Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            // 4. 前景腿
+            // 後左腿
+            ctx.beginPath(); ctx.roundRect(-40 + legSwing2, 15, 16, 30, 8); ctx.fill(); ctx.stroke();
+            // 前左腿
+            ctx.beginPath(); ctx.roundRect(10 + legSwing1, 15, 16, 30, 8); ctx.fill(); ctx.stroke();
+
+            // 5. 頭部
+            ctx.beginPath();
+            ctx.ellipse(35, -20, 26, 24, 0, 0, Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            // 6. 吐出的舌頭 (會喘氣伸縮)
+            const pant = Math.sin(Date.now() / 80) * 3;
+            ctx.fillStyle = '#FF5252';
+            ctx.beginPath();
+            ctx.ellipse(50, -5 + pant, 8, 12, Math.PI/4, 0, Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            // 7. 吻部 (狗鼻子周圍)
+            ctx.fillStyle = '#FFC107';
+            ctx.beginPath(); ctx.ellipse(55, -15, 16, 12, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            // 嘴巴線條
+            ctx.beginPath(); ctx.moveTo(45, -10); ctx.quadraticCurveTo(55, -5, 65, -12); ctx.stroke();
+
+            // 8. 鼻頭 (黑色)
+            ctx.fillStyle = '#4A2511';
+            ctx.beginPath(); ctx.arc(67, -18, 5, 0, Math.PI*2); ctx.fill();
+
+            // 9. 眼睛與高光
+            ctx.fillStyle = '#4A2511';
+            ctx.beginPath(); ctx.arc(40, -26, 4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(39, -27, 1.5, 0, Math.PI*2); ctx.fill();
+
+            // 10. 下垂的耳朵
+            ctx.fillStyle = '#E69A00';
+            ctx.beginPath();
+            ctx.ellipse(25, -10, 12, 22, -Math.PI/8, 0, Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            ctx.restore();
+        }
+    }
+
+    class Poop {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.size = state.width * 0.08; // 稍微調小，比較符合比例
+            this.vy = state.height * 0.35 / 60; 
+            this.isHit = false;
+        }
+
+        update() {
+            this.y += this.vy;
+
+            // 檢查是否砸到街道上的路人
+            if (this.y > state.streetY - this.size/2 && !this.isHit) {
+                for (let p of pedestrians) {
+                    let dx = this.x - p.x;
+                    if (Math.abs(dx) < p.size * 0.8) {
+                        this.isHit = true;
+                        p.gotHit();
+                        addScore(-5);
+                        AudioSys.playBad();
+                        floatingTexts.push(new FloatingText('OUCH! -5', this.x, this.y, '#FF4500'));
+                        break;
+                    }
+                }
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            
+            const s = this.size / 100;
+            ctx.scale(s, s);
+
+            if(this.isHit) ctx.globalAlpha = 0.5;
+
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.fillStyle = '#795548'; // 濃郁飽滿的咖啡色
+            ctx.strokeStyle = '#3E2723';
+            ctx.lineWidth = 4;
+
+            // --- 繪製日系可愛便便 ---
+            
+            // 底部
+            ctx.beginPath();
+            ctx.ellipse(0, 30, 45, 18, 0, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+
+            // 中層
+            ctx.beginPath();
+            ctx.ellipse(0, 10, 35, 16, 0, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+
+            // 上層
+            ctx.beginPath();
+            ctx.ellipse(0, -10, 20, 14, 0, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+
+            // 頂部尖端的小尾巴
+            ctx.beginPath();
+            ctx.moveTo(-15, -15);
+            ctx.quadraticCurveTo(-15, -40, 5, -45);
+            ctx.quadraticCurveTo(10, -25, 15, -15);
+            ctx.fill(); ctx.stroke();
+
+            // 便便的無辜小臉
+            ctx.fillStyle = '#3E2723';
+            ctx.beginPath();
+            ctx.arc(-15, 15, 4, 0, Math.PI * 2);
+            ctx.arc(15, 15, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 小巧的嘴巴
+            ctx.beginPath();
+            ctx.arc(0, 16, 4, 0, Math.PI);
+            ctx.stroke();
+            
+            // 側邊的亮色反光 (增添立體質感)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(-25, 25, 6, 3, Math.PI/4, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    class Gold {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.size = state.width * 0.16; // 尺寸放大四倍，變成超級大金塊！
+            this.vy = state.height * 0.35 / 60; 
+            this.isHit = false;
+        }
+
+        update() {
+            this.y += this.vy;
+
+            // 檢查是否砸到街道上的路人
+            if (this.y > state.streetY - this.size/2 && !this.isHit) {
+                for (let p of pedestrians) {
+                    let dx = this.x - p.x;
+                    if (Math.abs(dx) < p.size * 0.8) {
+                        this.isHit = true;
+                        p.gotHitByGold();
+                        addScore(20); // 天降橫財加 20 分！
+                        AudioSys.playGoldHit();
+                        floatingTexts.push(new FloatingText('$$$ +20', this.x, this.y, '#FFD700'));
+                        break;
+                    }
+                }
+            }
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            const s = this.size / 100;
+            ctx.scale(s, s);
+
+            if(this.isHit) ctx.globalAlpha = 0.5;
+
+            // --- 繪製閃亮大金磚 ---
+            ctx.lineJoin = 'round';
+            
+            // 底面/前面
+            ctx.fillStyle = '#FFD700';
+            ctx.strokeStyle = '#D4AF37';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-25, 15); ctx.lineTo(25, 15); ctx.lineTo(35, -5); ctx.lineTo(-35, -5);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // 頂面
+            ctx.fillStyle = '#FFE066';
+            ctx.beginPath();
+            ctx.moveTo(-35, -5); ctx.lineTo(-20, -20); ctx.lineTo(20, -20); ctx.lineTo(35, -5);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // 金光閃閃的反光
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.ellipse(-15, -10, 8, 3, Math.PI/6, 0, Math.PI*2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    class Pedestrian {
+        constructor() {
+            this.size = state.width * 0.18; // 調大一點
+            this.direction = Math.random() > 0.5 ? 1 : -1;
+            this.x = this.direction === 1 ? -this.size : state.width + this.size;
+            this.y = state.streetY;
+            this.vx = this.direction * (state.width * 0.2) / 60; 
+            this.hitTimer = 0; 
+            this.goldHitTimer = 0; // 新增被金塊砸到的計時器
+            
+            // 給路人隨機顏色的衣服，增加豐富度
+            const colors = ['#4FC3F7', '#81C784', '#FFB74D', '#BA68C8'];
+            this.clothesColor = colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        update() {
+            this.x += this.vx;
+            if (this.hitTimer > 0) this.hitTimer--;
+            if (this.goldHitTimer > 0) this.goldHitTimer--;
+        }
+
+        gotHit() {
+            this.hitTimer = 30; // 顯示受傷狀態 30 frame
+        }
+
+        gotHitByGold() {
+            this.goldHitTimer = 30; // 顯示大富翁狀態 30 frame
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            if (this.direction < 0) ctx.scale(-1, 1);
+            
+            // 走路微小的上下浮動
+            let bounce = Math.sin(Date.now() / 100) * 5;
+            
+            const s = this.size / 100;
+            ctx.scale(s, s);
+            ctx.translate(0, bounce / s);
+
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#3E2723';
+
+            // --- 繪製日系小學生路人 ---
+
+            // 1. 走路的腳 (會前後擺動)
+            ctx.fillStyle = '#3E2723';
+            ctx.beginPath();
+            const legSwing = Math.sin(Date.now() / 150) * 15;
+            ctx.roundRect(-15 + legSwing, 30, 10, 20, 5);
+            ctx.roundRect(5 - legSwing, 30, 10, 20, 5);
+            ctx.fill();
+
+            // 2. 圓角身體 (衣服)
+            ctx.fillStyle = this.clothesColor;
+            ctx.beginPath();
+            ctx.roundRect(-25, -10, 50, 45, 15);
+            ctx.fill(); ctx.stroke();
+            
+            // 3. 側邊背的小書包
+            ctx.fillStyle = '#E57373';
+            ctx.beginPath();
+            ctx.roundRect(-35, 0, 15, 25, 5);
+            ctx.fill(); ctx.stroke();
+
+            // 4. 頭部 (明亮的膚色)
+            ctx.fillStyle = '#FFDAB9';
+            ctx.beginPath();
+            ctx.arc(0, -35, 28, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+
+            // 5. 臉部表情與裝飾
+            if (this.hitTimer > 0) {
+                // 被砸到的崩潰臉
+                ctx.fillStyle = '#3E2723';
+                ctx.beginPath();
+                // 緊閉的眼睛 > <
+                ctx.moveTo(-15, -45); ctx.lineTo(-5, -35); ctx.lineTo(-15, -25);
+                ctx.moveTo(15, -45); ctx.lineTo(5, -35); ctx.lineTo(15, -25);
+                ctx.stroke();
+                
+                // 生氣符號 💢
+                ctx.strokeStyle = '#F44336';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(25, -55); ctx.lineTo(35, -65); ctx.lineTo(45, -55);
+                ctx.moveTo(35, -65); ctx.lineTo(35, -45);
+                ctx.moveTo(25, -45); ctx.lineTo(45, -65);
+                ctx.stroke();
+                
+                // 頭上頂著一坨髒污 (大便)
+                ctx.fillStyle = '#795548';
+                ctx.strokeStyle = '#3E2723';
+                ctx.beginPath();
+                ctx.ellipse(0, -65, 15, 8, 0, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
+
+            } else if (this.goldHitTimer > 0) {
+                // 被真黃金砸到的超爽笑臉 ($ $ 眼)
+                ctx.fillStyle = '#FF8A80'; // 腮紅
+                ctx.beginPath(); ctx.arc(-15, -25, 6, 0, Math.PI * 2); ctx.arc(15, -25, 6, 0, Math.PI * 2); ctx.fill();
+
+                ctx.strokeStyle = '#3E2723';
+                ctx.lineWidth = 3;
+                
+                // $ 眼睛
+                ctx.font = "bold 20px Arial";
+                ctx.fillStyle = '#FFD700'; // 金色
+                ctx.fillText("$", -12, -35);
+                ctx.fillText("$", 12, -35);
+                
+                // 大笑嘴巴
+                ctx.beginPath();
+                ctx.moveTo(-10, -20);
+                ctx.quadraticCurveTo(0, -10, 10, -20);
+                ctx.stroke();
+                
+                // 頭上頂著小金塊 (超幸運)
+                ctx.fillStyle = '#FFD700';
+                ctx.strokeStyle = '#D4AF37';
+                ctx.beginPath();
+                ctx.moveTo(-15, -55); ctx.lineTo(15, -55); ctx.lineTo(20, -65); ctx.lineTo(-20, -65);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                
+            } else {
+                // 正常的可愛小臉
+                ctx.fillStyle = '#FF8A80'; // 腮紅
+                ctx.beginPath();
+                ctx.arc(-15, -25, 6, 0, Math.PI * 2);
+                ctx.arc(15, -25, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#3E2723'; // 眼睛
+                ctx.beginPath();
+                ctx.arc(-10, -35, 3, 0, Math.PI * 2);
+                ctx.arc(10, -35, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 6. 日本小學生的經典黃帽
+            ctx.fillStyle = '#FDD835';
+            ctx.strokeStyle = '#3E2723';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, -45, 25, Math.PI, Math.PI * 2); // 帽體
+            ctx.fill(); ctx.stroke();
+            // 帽沿
+            ctx.beginPath();
+            ctx.roundRect(-35, -45, 70, 8, 4);
+            ctx.fill(); ctx.stroke();
+
+            ctx.restore();
+        }
+    }
+
+    class FloatingText {
+        constructor(text, x, y, color) {
+            this.text = text;
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.life = 60; // 存活 60 frame (約1秒)
+            this.maxLife = 60;
+            this.vy = -1.5; // 向上飄
+        }
+
+        update() {
+            this.y += this.vy;
+            this.life--;
+        }
+
+        draw() {
+            const alpha = this.life / this.maxLife;
+            const scale = 1 + (1 - alpha) * 0.5; // 逐漸變大
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(scale, scale);
+            ctx.globalAlpha = alpha;
+            ctx.font = `700 24px 'M PLUS Rounded 1c', sans-serif`;
+            
+            // 文字陰影(描邊)
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#FFF';
+            ctx.strokeText(this.text, 0, 0);
+            
+            ctx.fillStyle = this.color;
+            ctx.fillText(this.text, 0, 0);
+            ctx.restore();
+        }
+    }
+
+    // --- 遊戲邏輯 ---
+
+    function initGame() {
+        resize(); // 確保尺寸正確
+        state.score = 0;
+        state.timeLeft = 60;
+        state.lastTime = performance.now();
+        state.isPlaying = true;
+        
+        dog = new Dog();
+        poops = [];
+        golds = []; // 清空黃金陣列
+        pedestrians = [];
+        floatingTexts = [];
+        
+        updateUIDisplay();
+        
+        // 初始先加幾個路人
+        pedestrians.push(new Pedestrian());
+        
+        AudioSys.init();
+        AudioSys.playBgm();
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    function addScore(points) {
+        state.score += points;
+        updateUIDisplay();
+    }
+
+    function updateUIDisplay() {
+        scoreDisplay.innerText = state.score;
+        timeDisplay.innerText = Math.ceil(state.timeLeft);
+        // 分數顏色變化
+        scoreDisplay.style.color = state.score < 0 ? '#FF4500' : '#8B4513';
+    }
+
+    function gameLoop(timestamp) {
+        if (!state.isPlaying) return;
+
+        // 計算時間差 (用於計時器，而非物理更新以求簡單)
+        const dt = (timestamp - state.lastTime) / 1000;
+        state.lastTime = timestamp;
+
+        state.timeLeft -= dt;
+        if (state.timeLeft <= 0) {
+            endGame();
+            return;
+        }
+        updateUIDisplay();
+
+        // --- 更新邏輯 ---
+        
+        // 生成路人 (控制機率)
+        if (Math.random() < 0.015 && pedestrians.length < 4) {
+            pedestrians.push(new Pedestrian());
+        }
+
+        dog.update();
+        
+        poops.forEach(p => p.update());
+        // 移除掉出畫面或已砸到人的便便 (給砸到人一點視覺停留時間，所以等它掉出畫面再移)
+        poops = poops.filter(p => p.y < state.height + p.size);
+
+        golds.forEach(g => g.update());
+        golds = golds.filter(g => g.y < state.height + g.size);
+
+        pedestrians.forEach(p => p.update());
+        // 移除走出畫面的路人
+        pedestrians = pedestrians.filter(p => p.x > -p.size*2 && p.x < state.width + p.size*2);
+
+        floatingTexts.forEach(t => t.update());
+        floatingTexts = floatingTexts.filter(t => t.life > 0);
+
+        // --- 繪圖邏輯 ---
+        
+        ctx.clearRect(0, 0, state.width, state.height);
+
+        // 畫街道背景
+        ctx.fillStyle = 'rgba(160, 140, 120, 0.2)';
+        ctx.fillRect(0, state.streetY - 20, state.width, state.height - state.streetY + 20);
+        // 畫街道線
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([20, 15]);
+        ctx.beginPath();
+        ctx.moveTo(0, state.streetY);
+        ctx.lineTo(state.width, state.streetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 依序繪製確保層級 (路人 -> 便便/黃金 -> 狗 -> 文字)
+        pedestrians.forEach(p => p.draw());
+        poops.forEach(p => p.draw());
+        golds.forEach(g => g.draw());
+        dog.draw();
+        floatingTexts.forEach(t => t.draw());
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+        state.isPlaying = false;
+        AudioSys.stopBgm();
+        
+        gameOverModal.classList.remove('hidden');
+        finalScoreDisplay.innerText = state.score;
+        
+        let rank = "見習鏟屎官";
+        if (state.score >= 300) rank = "👑 傳說中的黃金右手";
+        else if (state.score >= 150) rank = "🏆 專業清潔大師";
+        else if (state.score >= 50) rank = "👍 稱職的好飼主";
+        else if (state.score < 0) rank = "🤦 鄰居眼中的頭痛人物";
+        
+        rankText.innerText = rank;
+    }
+
+    // --- 互動處理 (點擊/觸控撿便便) ---
+
+    function handleInteraction(ex, ey) {
+        if (!state.isPlaying) return;
+
+        // 轉換座標到 canvas 內部座標
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const dpr = window.devicePixelRatio || 1;
+        
+        // CSS 像素座標 (與繪圖邏輯一致)
+        const x = (ex - rect.left);
+        const y = (ey - rect.top);
+
+        let hitAny = false;
+
+        // 先判斷有沒有點到金塊 (點到金塊不加分)
+        for (let i = golds.length - 1; i >= 0; i--) {
+            let g = golds[i];
+            if(g.isHit) continue; 
+            
+            let dx = x - g.x;
+            let dy = y - g.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let hitRadius = g.size * 0.8; 
+
+            if (distance < hitRadius) {
+                golds.splice(i, 1); // 傻傻把真黃金收走
+                // 收到真黃金沒加分
+                AudioSys.playMiss();
+                floatingTexts.push(new FloatingText('沒加分...', g.x, g.y, '#9E9E9E'));
+                hitAny = true;
+                break; // 每次點擊最多撿一個
+            }
+        }
+
+        // 如果點到金塊了，就不繼續點大便
+        if (hitAny) return;
+
+        // 從陣列尾部開始判斷 (後畫的在最上層)
+        for (let i = poops.length - 1; i >= 0; i--) {
+            let p = poops[i];
+            // 已經砸到人的便便不能撿
+            if(p.isHit) continue; 
+
+            // 計算點擊位置與便便中心的距離
+            let dx = x - p.x;
+            let dy = y - p.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 擴大一點點擊判定範圍 (比視覺稍微大一點)
+            let hitRadius = p.size * 0.8; 
+
+            if (distance < hitRadius) {
+                // 成功撿到
+                poops.splice(i, 1);
+                addScore(10);
+                AudioSys.playGood();
+                floatingTexts.push(new FloatingText('GOOD!', p.x, p.y, '#FFD700'));
+                hitAny = true;
+                break; // 每次點擊最多撿一個
+            }
+        }
+        
+        // 如果想加入點擊落空的懲罰可以寫在這，但為了休閒感暫不加入
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        handleInteraction(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+        // 防止手機端雙擊縮放或其他默認行為
+        e.preventDefault(); 
+        for(let i=0; i<e.changedTouches.length; i++) {
+            handleInteraction(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+        }
+    }, {passive: false});
+
+
+    // --- 按鈕綁定 ---
+    
+    document.getElementById('startBtn').addEventListener('click', () => {
+        startModal.classList.add('hidden');
+        initGame();
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        gameOverModal.classList.add('hidden');
+        initGame();
+    });
+
+    // 初始化尺寸
+    resize();
+
+</script>
+</body>
+</html>
